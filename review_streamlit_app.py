@@ -59,12 +59,8 @@ def get_place_details(place_name):
         return None
 
 def find_place(place_name):
-    details = get_place_details(place_name)
-    if details:
-        return details, None
-    else:
-        alternatives = get_place_suggestions(place_name)
-        return None, alternatives
+    alternatives = get_place_suggestions(place_name)
+    return alternatives[:5] if alternatives else []
 
 def generate_table(places):
     if places:
@@ -96,8 +92,6 @@ def main():
         st.session_state.pending_alternatives = {}
     if 'original_inputs' not in st.session_state:
         st.session_state.original_inputs = {}
-    if 'reviewing_alternatives' not in st.session_state:
-        st.session_state.reviewing_alternatives = {}
     if 'place_alternatives' not in st.session_state:
         st.session_state.place_alternatives = {}
     if 'submit_clicked' not in st.session_state:
@@ -114,15 +108,10 @@ def main():
             place_names = [name.strip() for name in places_input.split('\n') if name.strip()]
             
             for place_name in place_names:
-                details, alternatives = find_place(place_name)
-                if details:
-                    st.session_state.places.append(details)
-                    st.session_state.original_inputs[details['name']] = place_name
-                    st.session_state.place_alternatives[details['name']] = get_place_suggestions(place_name)
-                    st.success(f"Added: {details['name']} - {details['address']}")
-                elif alternatives:
+                alternatives = find_place(place_name)
+                if alternatives:
                     st.session_state.pending_alternatives[place_name] = alternatives
-                    st.warning(f"Couldn't find an exact match for '{place_name}'. Please select from alternatives.")
+                    st.info(f"Found matches for '{place_name}'. Please select from the alternatives.")
                 else:
                     st.error(f"No matches found for '{place_name}'. Try a different name.")
         else:
@@ -130,14 +119,14 @@ def main():
             st.rerun()
 
     for place_name, alternatives in list(st.session_state.pending_alternatives.items()):
-        st.write(f"Select an alternative for '{place_name}':")
+        st.write(f"Select a match for '{place_name}':")
         selected_alternative = st.selectbox(
-            f"Alternatives for {place_name}",
+            f"Matches for {place_name}",
             alternatives,
             key=f"alt_{place_name}",
             format_func=lambda x: x[:100] + "..." if len(x) > 100 else x
         )
-        if selected_alternative != alternatives[0]:
+        if st.button(f"Add selected for {place_name}"):
             details = get_place_details(selected_alternative.split(' - ')[0])
             if details:
                 st.session_state.places.append(details)
@@ -153,41 +142,20 @@ def main():
         col1, col2 = st.columns([1, 1])
         
         alternatives = st.session_state.place_alternatives.get(place['name'], [])
-        if len(alternatives) > 1:
-            with col1:
-                if st.button(f"Review Alternatives {i}", key=f"review_button_{i}"):
-                    st.session_state.reviewing_alternatives[i] = not st.session_state.reviewing_alternatives.get(i, False)
+        with col1:
+            if st.button(f"Review Alternatives {i}", key=f"review_button_{i}"):
+                st.session_state.pending_alternatives[st.session_state.original_inputs[place['name']]] = alternatives
+                del st.session_state.places[i]
+                st.rerun()
         
         with col2:
             if st.button(f"Remove {i}"):
                 del st.session_state.places[i]
                 if place['name'] in st.session_state.place_alternatives:
                     del st.session_state.place_alternatives[place['name']]
-                if i in st.session_state.reviewing_alternatives:
-                    del st.session_state.reviewing_alternatives[i]
+                if place['name'] in st.session_state.original_inputs:
+                    del st.session_state.original_inputs[place['name']]
                 st.rerun()
-        
-        if st.session_state.reviewing_alternatives.get(i, False) and len(alternatives) > 1:
-            original_input = st.session_state.original_inputs.get(place['name'], place['name'])
-            current_place = f"{place['name']} - {place['address']}"
-            alternatives = [current_place] + [alt for alt in alternatives if alt != current_place]
-            selected_alternative = st.selectbox(
-                f"Alternatives for {original_input}",
-                alternatives,
-                key=f"review_alt_{i}",
-                format_func=lambda x: x[:100] + "..." if len(x) > 100 else x
-            )
-            if selected_alternative != current_place:
-                new_details = get_place_details(selected_alternative.split(' - ')[0])
-                if new_details:
-                    st.session_state.places[i] = new_details
-                    st.session_state.original_inputs[new_details['name']] = original_input
-                    st.session_state.place_alternatives[new_details['name']] = alternatives
-                    st.session_state.reviewing_alternatives[i] = False
-                    if place['name'] in st.session_state.place_alternatives:
-                        del st.session_state.place_alternatives[place['name']]
-                    st.success(f"Replaced with: {new_details['name']} - {new_details['address']}")
-                    st.rerun()
         
         st.write("---")
 
