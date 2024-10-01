@@ -32,7 +32,7 @@ def get_place_details(place_name):
     search_response = requests.get(search_url, params=search_params)
     search_data = search_response.json()
     
-    if search_data["status"] == "OK":
+    if search_data["status"] == "OK" and search_data["candidates"]:
         place = search_data["candidates"][0]
         place_id = place["place_id"]
         
@@ -56,6 +56,14 @@ def get_place_details(place_name):
             }
     
     return None
+
+def find_place(place_name):
+    details = get_place_details(place_name)
+    if details:
+        return details, None
+    else:
+        alternatives = get_place_suggestions(place_name)
+        return None, alternatives
 
 def generate_table(places):
     if places:
@@ -83,18 +91,23 @@ def main():
     
     if 'places' not in st.session_state:
         st.session_state.places = []
+    if 'pending_alternatives' not in st.session_state:
+        st.session_state.pending_alternatives = {}
 
     # Function to handle input submission
     def handle_submit():
         place_names = [name.strip() for name in st.session_state.places_input.split('\n') if name.strip()]
         
         for place_name in place_names:
-            details = get_place_details(place_name)
+            details, alternatives = find_place(place_name)
             if details:
                 st.session_state.places.append(details)
                 st.success(f"Added: {details['name']} - {details['address']}")
+            elif alternatives:
+                st.session_state.pending_alternatives[place_name] = alternatives
+                st.warning(f"Couldn't find an exact match for '{place_name}'. Please select from alternatives.")
             else:
-                st.error(f"Couldn't find an exact match for '{place_name}'. Try a more specific name.")
+                st.error(f"No matches found for '{place_name}'. Try a different name.")
         
         st.session_state.places_input = ""  # Clear the input
 
@@ -104,6 +117,23 @@ def main():
     # Submit button (for users who prefer clicking)
     st.button("Submit Places", on_click=handle_submit)
     
+    # Handle pending alternatives
+    for place_name, alternatives in list(st.session_state.pending_alternatives.items()):
+        st.write(f"Select an alternative for '{place_name}':")
+        selected_alternative = st.selectbox(
+            f"Alternatives for {place_name}",
+            alternatives,
+            key=f"alt_{place_name}",
+            format_func=lambda x: x[:100] + "..." if len(x) > 100 else x
+        )
+        if st.button(f"Add Selected Alternative for {place_name}"):
+            details = get_place_details(selected_alternative)
+            if details:
+                st.session_state.places.append(details)
+                st.success(f"Added: {details['name']} - {details['address']}")
+                del st.session_state.pending_alternatives[place_name]
+                st.rerun()
+
     # Display current places with options
     st.subheader("Current Places")
     for i, place in enumerate(st.session_state.places):
@@ -117,7 +147,7 @@ def main():
                     selected_alternative = st.selectbox(
                         f"Alternatives for {place['name']}",
                         alternatives,
-                        key=f"alt_{i}",
+                        key=f"review_alt_{i}",
                         format_func=lambda x: x[:100] + "..." if len(x) > 100 else x
                     )
                     if st.button(f"Replace with Selected Alternative {i}"):
@@ -139,6 +169,7 @@ def main():
     # Clear all button
     if st.button("Clear All"):
         st.session_state.places = []
+        st.session_state.pending_alternatives = {}
         st.success("All places cleared!")
         st.rerun()
 
