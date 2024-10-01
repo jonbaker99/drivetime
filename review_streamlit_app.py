@@ -57,56 +57,90 @@ def get_place_details(place_name):
     
     return None
 
-def main():
-    st.title("Google Places Search App")
-    
-    if 'places' not in st.session_state:
-        st.session_state.places = []
-    
-    # Input for place name
-    place_name = st.text_input("Enter the name of a place or business:")
-    
-    if place_name:
-        details = get_place_details(place_name)
-        
-        if details:
-            st.session_state.places.append(details)
-            st.success(f"Added: {details['name']}")
-            st.info(f"Address: {details['address']}")
-        else:
-            st.warning("Couldn't find an exact match. Here are some suggestions:")
-            suggestions = get_place_suggestions(place_name)
-            selected_suggestion = st.selectbox("Select a suggestion:", suggestions)
-            
-            if st.button("Add selected suggestion"):
-                details = get_place_details(selected_suggestion)
-                if details:
-                    st.session_state.places.append(details)
-                    st.success(f"Added: {details['name']}")
-    
-    # Display the results
-    if st.session_state.places:
-        st.subheader("Results")
+def generate_table(places):
+    if places:
         table = PrettyTable()
-        table.field_names = ["Place Name", "Number of Reviews", "Score"]
+        table.field_names = ["Place Name", "Address", "Number of Reviews", "Score"]
         table.align["Place Name"] = "l"
+        table.align["Address"] = "l"
         table.align["Number of Reviews"] = "r"
         table.align["Score"] = "r"
         
-        for place in st.session_state.places:
+        for place in places:
             table.add_row([
                 place['name'],
+                place['address'],
                 place['total_ratings'],
                 f"{place['rating']:.1f}" if isinstance(place['rating'], (int, float)) else place['rating']
             ])
         
         st.text(table)
+    else:
+        st.warning("No places added yet. Add some places to see results.")
+
+def main():
+    st.title("Google Places Search App")
     
+    if 'places' not in st.session_state:
+        st.session_state.places = []
+
+    # Function to handle input submission
+    def handle_submit():
+        place_names = [name.strip() for name in st.session_state.places_input.split('\n') if name.strip()]
+        
+        for place_name in place_names:
+            details = get_place_details(place_name)
+            if details:
+                st.session_state.places.append(details)
+                st.success(f"Added: {details['name']} - {details['address']}")
+            else:
+                st.error(f"Couldn't find an exact match for '{place_name}'. Try a more specific name.")
+        
+        st.session_state.places_input = ""  # Clear the input
+
+    # Input for place names
+    st.text_area("Enter place names (one per line):", key="places_input", on_change=handle_submit)
+    
+    # Submit button (for users who prefer clicking)
+    st.button("Submit Places", on_click=handle_submit)
+    
+    # Display current places with options
+    st.subheader("Current Places")
+    for i, place in enumerate(st.session_state.places):
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col1:
+            st.write(f"{place['name']} - {place['address']}")
+        with col2:
+            if st.button(f"Review Alternatives {i}"):
+                alternatives = get_place_suggestions(place['name'])
+                if alternatives:
+                    selected_alternative = st.selectbox(
+                        f"Alternatives for {place['name']}",
+                        alternatives,
+                        key=f"alt_{i}",
+                        format_func=lambda x: x[:100] + "..." if len(x) > 100 else x
+                    )
+                    if st.button(f"Replace with Selected Alternative {i}"):
+                        new_details = get_place_details(selected_alternative)
+                        if new_details:
+                            st.session_state.places[i] = new_details
+                            st.rerun()
+                else:
+                    st.warning("No alternatives found.")
+        with col3:
+            if st.button(f"Remove {i}"):
+                del st.session_state.places[i]
+                st.rerun()
+
+    # Button to generate table
+    if st.button("Generate Results Table"):
+        generate_table(st.session_state.places)
+
     # Clear all button
     if st.button("Clear All"):
         st.session_state.places = []
         st.success("All places cleared!")
-        st.experimental_rerun()
+        st.rerun()
 
 if __name__ == "__main__":
     main()
