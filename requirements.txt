@@ -1,3 +1,4 @@
-streamlit
 googlemaps
 prettytable
+streamlit==1.24.1  # Replace with the latest stable version if available
+requests
