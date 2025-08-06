@@ -4,7 +4,9 @@ from datetime import datetime
 from itertools import product
 
 # Use Streamlit secrets for API key
-API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
+# API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
+API_KEY = st.secrets.get("GOOGLE_MAPS_API_KEY", os.environ.get("GOOGLE_MAPS_API_KEY"))
+
 
 # Initialize the Google Maps client
 gmaps = googlemaps.Client(key=API_KEY)
