@@ -2,6 +2,8 @@ import streamlit as st
 import googlemaps
 from datetime import datetime
 from itertools import product
+import os
+
 
 # Use Streamlit secrets for API key
 # API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
