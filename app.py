@@ -6,8 +6,14 @@ import os
 
 
 # Use Streamlit secrets for API key
-# API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
-API_KEY = st.secrets.get("GOOGLE_MAPS_API_KEY", os.environ.get("GOOGLE_MAPS_API_KEY"))
+
+try:
+    API_KEY = st.secrets["GOOGLE_MAPS_API_KEY"]
+except (st.errors.StreamlitAPIException, KeyError):
+    API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY")
+
+if not API_KEY:
+    st.error("No Google Maps API key found. Please set it in Railway variables or .streamlit/secrets.toml")
 
 
 # Initialize the Google Maps client
