@@ -224,16 +224,19 @@ def main():
                     for end_name, end_address in st.session_state.destinations.items():
                         if start_address != end_address:
                             outbound_duration = get_travel_time(start_address, end_address, travel_mode)
+                            # Choose emoji based on travel mode
+                            mode_emoji = "🚗" if travel_mode == "driving" else "🚶‍♂️"
+                            
                             if outbound_duration:
                                 if trip_type == "Return":
                                     inbound_duration = get_travel_time(end_address, start_address, travel_mode)
                                     if inbound_duration:
                                         total_duration = outbound_duration + inbound_duration
-                                        st.success(f"🚗 {start_name} → {end_name} → {start_name}: **{total_duration} minutes** [{outbound_duration} min out, {inbound_duration} min back]")
+                                        st.success(f"{mode_emoji} {start_name} → {end_name} → {start_name}: **{total_duration} minutes** [{outbound_duration} min out, {inbound_duration} min back]")
                                     else:
                                         st.warning(f"⚠️ Could not calculate return time for {start_name} → {end_name}")
                                 else:
-                                    st.success(f"🚗 {start_name} → {end_name}: **{outbound_duration} minutes**")
+                                    st.success(f"{mode_emoji} {start_name} → {end_name}: **{outbound_duration} minutes**")
                             else:
                                 st.error(f"❌ Could not calculate time for {start_name} → {end_name}")
     else:
