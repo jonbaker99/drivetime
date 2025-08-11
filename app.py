@@ -32,25 +32,47 @@ def validate_address(address):
         st.error(f"Error validating address: {e}")
         return None, None
 
-def get_driving_time(origin, destination):
+def get_travel_time(origin, destination, mode="driving"):
     now = datetime.now()
     try:
-        directions_result = gmaps.directions(origin,
-                                             destination,
-                                             mode="driving",
-                                             departure_time=now)
+        # For driving, we can use departure_time and get traffic data
+        if mode == "driving":
+            directions_result = gmaps.directions(origin,
+                                                 destination,
+                                                 mode=mode,
+                                                 departure_time=now)
+        else:
+            # For walking, transit, bicycling - no departure_time needed
+            directions_result = gmaps.directions(origin,
+                                                 destination,
+                                                 mode=mode)
+        
         if directions_result:
-            duration = directions_result[0]['legs'][0]['duration_in_traffic']['value']
+            leg = directions_result[0]['legs'][0]
+            
+            # For driving, prefer duration_in_traffic if available
+            if mode == "driving" and 'duration_in_traffic' in leg:
+                duration = leg['duration_in_traffic']['value']
+            else:
+                duration = leg['duration']['value']
+            
             return round(duration / 60)  # Convert seconds to minutes
         else:
             return None
     except Exception as e:
-        st.error(f"Error getting driving time: {e}")
+        st.error(f"Error getting travel time: {e}")
         return None
 
 def main():
-    st.title("Drive Time Calculator")
+    st.title("Travel Time Calculator")
 
+    # Add travel mode selection
+    travel_mode = st.radio(
+        "Select travel mode:", 
+        ("driving", "walking"),
+        format_func=lambda x: x.capitalize()
+    )
+    
     trip_type = st.radio("Select trip type:", ("Return", "One-way"))
 
     start_points = {}
@@ -101,15 +123,15 @@ def main():
         else:
             break
 
-    if st.button("Calculate Drive Times"):
+    if st.button(f"Calculate {travel_mode.capitalize()} Times"):
         st.header("Results")
         for start_name, start_address in start_points.items():
             for end_name, end_address in destinations.items():
                 if start_address != end_address:
-                    outbound_duration = get_driving_time(start_address, end_address)
+                    outbound_duration = get_travel_time(start_address, end_address, travel_mode)
                     if outbound_duration:
                         if trip_type == "Return":
-                            inbound_duration = get_driving_time(end_address, start_address)
+                            inbound_duration = get_travel_time(end_address, start_address, travel_mode)
                             if inbound_duration:
                                 total_duration = outbound_duration + inbound_duration
                                 st.write(f"{start_name} -> {end_name} -> {start_name}: {total_duration} mins [{outbound_duration} mins out, {inbound_duration} mins back]")
